@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>字幕编辑器</title>
+<style type="text/css">
+body {
+	margin: 0px;
+}
+
+#toolbar {
+	width: 100%;
+	padding: 10px;
+	background-color: #dfdfe0;
+	border-bottom: 1px solid #aaaaab;
+}
+
+#stage {
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	display: none;
+}
+
+#player {
+	width: 100%;
+	height: 100%;
+	background-image: -webkit-gradient(linear, left top, right top, from(blue), to(green));
+}
+
+#hud {
+	position: absolute;
+	left: 10px;
+	top: 10px;
+	background-color: rgba(0,0,0, 0.3);
+	color: white;
+	font-size: 12px;
+	font-weight: bold;
+	font-family: Courier New;
+	padding: 5px;
+	display: none;
+}
+
+#slide-view {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	width: 100%;
+	overflow: hidden;
+	font-size: 16px;
+}
+
+#slide-bar {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	width: 100%;
+	padding-top: 5em;
+	padding-bottom: 3em;
+	background-color: transparent;
+}
+
+#slide-bar div {
+	font-family: 微软雅黑;
+	font-weight: bold;
+	font-size: 1em;
+	line-height: 1.8em;
+	text-align: center;
+
+	transition: color 1s;
+	color: white;
+	text-shadow: -2px -2px 1px #000000, 2px 2px 1px #000000, -2px 2px 1px #000000, 2px -2px 1px #000000;
+	letter-spacing: 2px;
+}
+#slide-bar div.passed-line {
+	color: silver;
+}
+#slide-bar div.current-line {
+	color: yellow;
+	text-shadow: -2px -2px 1px red, 2px 2px 1px red, -2px 2px 1px red, 2px -2px 1px red;
+}
+
+#editor {
+	position: relative;
+	overflow: hidden;
+	display: none;
+}
+
+textarea {
+	background-color: #EFF3F7;
+	border: 1px solid gray;
+	width: 100%;
+	height: 100%;
+}
+</style>
+</head>
+
+<body>
+
+<div id="toolbar">
+	<button id="btn-load-video">打开视频文件</button>
+	<button id="btn-load-text">打开文本</button>
+	<button id="btn-save-srt">保存字幕文件</button>
+</div>
+
+<div id="stage">
+	<video id="player" controls></video>
+	<div id="hud"></div>
+	<div id="slide-view">
+		<div id="slide-bar"></div>
+	</div>
+</div>
+
+<div id="editor">
+	<textarea id="source"></textarea>
+</div>
+
+<script src="jquery-1.11.1.js"></script>
+<script src="index.js"></script>
+
+</body>
+</html>

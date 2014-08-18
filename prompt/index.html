@@ -33,8 +33,8 @@ body {
 	color: yellow;
 }
 #slide div.bop {
-	background: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255, 0.5)), to(rgba(255,255,255, 0))) 0 0 no-repeat;
-	-webkit-background-size: 100% 25px;
+	background: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255, 0.3)), color-stop(20%, rgba(255,255,255,0.2)), color-stop(50%, rgba(255,255,255,0.1)), to(rgba(255,255,255, 0))) 0 0 no-repeat;
+	-webkit-background-size: 100% 0.8em;
 }
 
 #toolbar {
@@ -107,6 +107,10 @@ body {
 	<span id="btn-play" class="btn">播放</span>
 
 	<span class="seperate"><input type="checkbox" id="btn-flip" value="true"/><label for="btn-flip">翻转</label></span>
+
+	<span id="btn-dec-chars" class="btn btn-chars seperate">-</span>
+	<span id="btn-reset-chars" class="btn btn-chars">每行 <span id="chars">20</span> 字</span>
+	<span id="btn-inc-chars" class="btn btn-chars">+</span>
 
 	<span id="btn-dec-speed" class="btn btn-speed seperate">-</span>
 	<span id="btn-reset-speed" class="btn btn-speed">每分钟 <span id="speed">270</span> 字</span>

@@ -1,4 +1,5 @@
 // http://api.jquery.com/
+// https://developer.chrome.com/apps/about_apps
 $(function() {
 	// 设置初始状态
 	resizeStage();
@@ -21,9 +22,6 @@ $(function() {
 			}, function(entry) {
 				entry.file(function(file) {
 					var reader = new FileReader();
-					reader.onerror = function(e) {
-						//
-					};
 					reader.onloadend = function(e) {
 						$('#source').val(e.target.result);
 					};
@@ -42,6 +40,26 @@ $(function() {
 	// 阻止选择文本，便于快速连点按钮
 	$('#toolbar').on('selectstart', function(evt) {
 		evt.preventDefault();
+	});
+
+	// 控制每行字数
+	$('#btn-dec-chars').on('click', function() {
+		adjustChars(-1);
+		if ($('#btn-play').hasClass('pressed')) {
+			switchMode('play');
+		}
+	});
+	$('#btn-inc-chars').on('click', function() {
+		adjustChars(1);
+		if ($('#btn-play').hasClass('pressed')) {
+			switchMode('play');
+		}
+	});
+	$('#btn-reset-chars').on('click', function() {
+		$('#chars').text('20');
+		if ($('#btn-play').hasClass('pressed')) {
+			switchMode('play');
+		}
 	});
 
 	// 控制语速
@@ -105,6 +123,15 @@ function switchMode(mode)
 	}
 }
 
+// 调整每行字数
+function adjustChars(inc)
+{
+	var chars = parseInt($('#chars').text()) + inc;
+	if (chars < 10) chars = 10;
+	if (chars > 60) chars = 60;
+	$('#chars').text(chars);
+}
+
 // 调整语速：字/分钟
 function adjustSpeed(inc)
 {
@@ -115,11 +142,9 @@ function adjustSpeed(inc)
 }
 
 var totalCharNum = 0;
-var maxLineCharNum = 0;
 function appendLine(line, bop)
 {
 	totalCharNum += Math.max(line.replace(/[，、。！“”‘’：《》 ,\.!"':<>]/g, '').length, 3);
-	maxLineCharNum = Math.max(maxLineCharNum, line.length);
 	if (line.length > 0) {
 		var div = $('<div/>').text(line).appendTo('#slide').data('data-sofar', totalCharNum);
 		if (bop === true) { // Begin Of Paragraph
@@ -132,7 +157,6 @@ function appendLine(line, bop)
 function parseSource()
 {
 	totalCharNum = 0;
-	maxLineCharNum = 0;
 	$('#slide').empty();
 	appendLine('');
 	appendLine('');
@@ -140,18 +164,66 @@ function parseSource()
 	appendLine('');
 	appendLine('');
 	appendLine('');
-	$.each($('#source').val().split('\n'), function(idx, line) {
-		appendLine(line.trim());
+	var blocks = reformSource($('#source').val());
+	$.each(blocks, function(idx, lines) {
+		var bop = true;
+		$.each(lines, function(idx, line) {
+			appendLine(line, bop);
+			bop = false;
+		});
 	});
-	resetFontSize();
+	recalcFontSize();
 }
 
-function resetFontSize()
+// 段落重组：以空行为段落分隔，段落内部以固定长度重新分行
+function reformSource(source)
 {
-	if (maxLineCharNum == 0) return;
-	var szY = Math.floor(($(window).height() - $('#toolbar').outerHeight()) / 15); // 最多容纳 15 行
-	var szX = Math.floor($(window).width() / maxLineCharNum); // 确保能完整显示最长的行
-	var sz = szX < szY ? szX : szY;
+	// 空行作为段落分隔，其它部分都拼合为一个段落
+	var paragraphs = [];
+	var paragraph = [];
+	$.each(source.split('\n'), function(idx, line) {
+		line = line.trim();
+		if (line.length == 0) {
+			if (paragraph.length > 0) {
+				paragraphs.push(paragraph.join(' '));
+			}
+			paragraph = [];
+		} else {
+			paragraph.push(line);
+		}
+	});
+	if (paragraph.length > 0) {
+		paragraphs.push(paragraph.join(' '));
+	}
+
+	// 按固定长度（20个中文字符）重新分行
+	var blocks = [];
+	var chars = parseInt($('#chars').text());
+	$.each(paragraphs, function(idx, paragraph) {
+		paragraph = paragraph.replace(/\s+/g, '　');
+		var lines = [];
+		while (paragraph.length > 0) {
+			var len = 0;
+			var pos = 0;
+			while (pos < paragraph.length && len < chars * 2) {
+				len += paragraph.charCodeAt(pos) > 0x7f ? 2 : 1;
+				pos ++;
+			}
+			lines.push(paragraph.substr(0, pos));
+			paragraph = paragraph.substr(pos);
+		}
+		//blocks.push(lines);
+		paragraphs[idx] = lines;
+	});
+	
+	//return blocks;
+	return paragraphs;
+}
+
+function recalcFontSize()
+{
+	var chars = parseInt($('#chars').text()) + 1;
+	var sz = Math.floor($(window).width() / chars)
 	$('#stage').css('font-size', sz + 'px');
 	//console.log('字体[' + sz + ']  行高[' + (sz*1.8) + ']');
 }
@@ -226,5 +298,5 @@ function resizeStage()
 	var h = $(window).height() - $('#toolbar').outerHeight();
 	$('#stage').width(w).height(h);
 	$('#source').width(w).height(h);
-	resetFontSize();
+	recalcFontSize();
 }

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>提词器</title>
+<style type="text/css">
+body {
+	margin: 0px;
+	overflow: hidden;
+}
+#stage {
+	position: relative;
+	overflow: hidden;
+	height: 50%;
+	display: none;
+}
+#slide {
+	white-space: pre;
+	font-family: 微软雅黑;
+	font-size: 1em;
+	line-height: 1.8em;
+	background-color: black;
+	width: 100%;
+	min-height: 20em;
+	padding-bottom: 20em;
+	text-align: center;
+}
+#slide div {
+	transition: color 1s;
+	color: white;
+}
+#slide div.current-line {
+	color: yellow;
+}
+#slide div.bop {
+	background: -webkit-gradient(linear, left top, left bottom, from(rgba(255,255,255, 0.5)), to(rgba(255,255,255, 0))) 0 0 no-repeat;
+	-webkit-background-size: 100% 25px;
+}
+
+#toolbar {
+	position: fixed;
+	left: 0px;
+	bottom: 0px;
+	width: 100%;
+	padding: 10px;
+	background-color: #dfdfe0;
+	border-top: 1px solid #aaaaab;
+}
+#toolbar > span {
+	display: inline-block;
+	font-size: 12px;
+}
+#toolbar input {
+	vertical-align: sub;
+}
+.btn {
+	border: 1px solid silver;
+	padding: 5px;
+	cursor: pointer;
+}
+.btn:hover {
+	border: 1px solid black;
+}
+.btn.pressed {
+	background-color: gray;
+	color: white;
+	cursor: default;
+	border: 1px solid silver;
+}
+
+.seperate {
+	margin-left: 30px;
+}
+.btn-speed {
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+#progress {
+	width: 10px;
+	overflow-x: visible;
+}
+#progress #sofar {
+	display: inline-block;
+	background-color: #10ff10;
+	height: 1.5em;
+	vertical-align: bottom;
+	transition: width 1s;
+}
+#progress #rest {
+	display: inline-block;
+	background-color: red;
+	height: 1.5em;
+	vertical-align: bottom;
+	transition: width 1s;
+}
+</style>
+</head>
+<body>
+<textarea id="source">
+</textarea>
+<div id="stage">
+	<div id="slide"></div>
+</div>
+<div id="toolbar">
+	<span id="btn-source" class="btn">文本编辑</span>
+	<span id="btn-play" class="btn">播放</span>
+
+	<span class="seperate"><input type="checkbox" id="btn-flip" value="true"/><label for="btn-flip">翻转</label></span>
+
+	<span id="btn-dec-speed" class="btn btn-speed seperate">-</span>
+	<span id="btn-reset-speed" class="btn btn-speed">每分钟 <span id="speed">270</span> 字</span>
+	<span id="btn-inc-speed" class="btn btn-speed">+</span>
+
+	<span id="progress-anchor" class="seperate"></span>
+	<span id ="progress">
+		<span id="sofar"></span><span id="rest"></span>
+	</span>
+</div>
+
+<script src="jquery-1.11.1.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

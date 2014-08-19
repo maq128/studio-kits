@@ -108,6 +108,7 @@ function switchMode(mode)
 		$('#source').show();
 		$('#stage').hide();
 		$('#progress').hide();
+		chrome.app.window.current().restore();
 	} else if (mode == 'play') {
 		slideStop();
 		$('#btn-play').addClass('pressed');
@@ -120,6 +121,7 @@ function switchMode(mode)
 
 		$('#stage').scrollTop(0);
 		slideUp();
+		chrome.app.window.current().fullscreen();
 	}
 }
 
@@ -259,12 +261,7 @@ function slideUp()
 	});
 
 	// 计算播放进度
-	var total = $('#toolbar').innerWidth() - $('#progress-anchor').position()['left'] - 100;
-	var sofar = Math.floor(total * window._curLine.data('data-sofar') / totalCharNum);
-	var rest = total - sofar;
-	$('#progress').width(total);
-	$('#sofar').width(sofar);
-	$('#rest').width(rest);
+	recalcProgress();
 }
 
 function slideStop()
@@ -292,6 +289,17 @@ function resetFlip()
 	$('#btn-flip').blur();
 }
 
+function recalcProgress()
+{
+	
+	var total = $('#toolbar').innerWidth() - $('#progress-anchor').position()['left'] - 100;
+	var sofar = window._curLine ? Math.floor(total * window._curLine.data('data-sofar') / totalCharNum) : total;
+	var rest = total - sofar;
+	$('#progress').width(total);
+	$('#sofar').width(sofar);
+	$('#rest').width(rest);
+}
+
 function resizeStage()
 {
 	var w = $(window).width();
@@ -299,4 +307,5 @@ function resizeStage()
 	$('#stage').width(w).height(h);
 	$('#source').width(w).height(h);
 	recalcFontSize();
+	recalcProgress();
 }

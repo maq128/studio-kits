@@ -68,7 +68,7 @@ body {
 	line-height: 1.8em;
 	text-align: center;
 
-	transition: color 1s;
+	transition: color 0.3s;
 	color: white;
 	text-shadow: -2px -2px 1px #000000, 2px 2px 1px #000000, -2px 2px 1px #000000, 2px -2px 1px #000000;
 	letter-spacing: 2px;
@@ -79,6 +79,9 @@ body {
 #slide-bar div.current-line {
 	color: yellow;
 	text-shadow: -2px -2px 1px red, 2px 2px 1px red, -2px 2px 1px red, 2px -2px 1px red;
+}
+#slide-bar div.current-line.overdue {
+	color: silver;
 }
 
 #editor {
@@ -95,7 +98,8 @@ body {
 }
 
 #editor tr {
-	transition: background-color 0.5s;
+	transition: background-color 0.3s;
+	transition: color 0.3s;
 }
 
 #editor tr.passed-line {
@@ -103,7 +107,8 @@ body {
 	cursor: pointer;
 }
 #editor tr.current-line {
-	background-color: #FFD0D0;
+	background-color: #FFE0E0;
+	color: gray;
 }
 
 #editor td {
@@ -117,6 +122,18 @@ body {
 	text-align: right;
 	width: 60px;
 }
+#editor td.btn-del {
+	padding: 2px 2px;
+	text-align: center;
+	font-family: Webdings;
+	color: transparent;
+}
+#editor tr.passed-line td.btn-del {
+	color: red;
+}
+#editor tr.current-line td.btn-del {
+	color: transparent;
+}
 </style>
 </head>
 
@@ -124,7 +141,7 @@ body {
 
 <div id="toolbar">
 	<button id="btn-load-video">打开视频文件</button>
-	<button id="btn-load-text">打开文本</button>
+	<button id="btn-load-text">打开文本/字幕文件</button>
 	<button id="btn-save-srt">保存字幕文件</button>
 </div>
 
@@ -151,7 +168,7 @@ body {
 		<tr><td>　　</td></tr>
 		<tr><td>鼠标操作方法：</td></tr>
 		<tr><td>　　点击播放区：暂停/播放视频</td></tr>
-		<tr><td>　　点击列表区：清除点击行的时间戳（注意：不是跳转到该行）</td></tr>
+		<tr><td>　　点击列表区：点击红叉是清除该行的时间戳，点击其它部分是跳转到该行对应的时间点</td></tr>
 		<tr><td>　　</td></tr>
 		</tBody>
 	</table>

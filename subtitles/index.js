@@ -87,11 +87,14 @@ $(function() {
 
 	// 鼠标点击时切换“播放/暂停”
 	$('#slide-view').on('click', function() {
+		if (player.readyState == 0) return;
 		player.paused ? player.play() : player.pause();
 	});
 
 	// 播放进度
 	$(player).on('timeupdate', function() {
+		if (player.readyState == 0) return;
+
 		// 实时显示播放进度
 		var str = formatTime(this.currentTime) + ' / ' + formatTime(this.duration);
 		$('#hud').text(str).show();
@@ -128,19 +131,31 @@ $(function() {
 			evt.preventDefault();
 
 		} else if (evt.keyCode == 13) { // 回车键
-			// 停止当前行结束时间戳的自动延展
+			// 停止当前行 tsOut 的自动延展
 			if (_lines.current >= 0) {
-				_lines[_lines.current].autoExtend = false;
+				var line = _lines[_lines.current];
+				line.tsOut = player.currentTime;
+				line.autoExtend = false;
+				renderLine(line);
 			}
 			evt.preventDefault();
 		}
 	});
 
-	// 编辑区点击清除时间戳
+	// 点击编辑区
 	$('#lines').delegate('tr.passed-line', 'click', function(evt) {
 		var line = $(evt.currentTarget).data('data-line');
-		line.passed = false;
-		renderLine(line);
+		if ($(evt.target).hasClass('btn-del')) {
+			// 清除时间戳（当前行不能清）
+			if (!line.elText.hasClass('current-line')) {
+				line.passed = false;
+				renderLine(line);
+			}
+		} else {
+			// 跳到指定的时间点（先暂停，以确保跳跃不受限制）
+			player.pause();
+			player.currentTime = line.tsIn;
+		}
 	});
 
 	// 调整界面布局
@@ -166,7 +181,7 @@ function formatTime(ts, ms, h)
 	str += formatPadding(minutes, '00') + ':';
 	str += formatPadding(seconds, '00');
 	if (ms) {
-		str += '.' + formatPadding(msec, '000');
+		str += ',' + formatPadding(msec, '000');
 	}
 	return str;
 }
@@ -200,26 +215,72 @@ function parseTxtSource(source)
 			passed: false,
 			autoExtend: true
 		};
-
-		// 播放区
-		line.elVisual = $('<div/>').appendTo('#slide-bar').data('data-line', line);
-
-		// 编辑区
-		line.elText = $('<tr><td class="ts ts-in"></td><td class="ts ts-out"></td><td class="text"></td></tr>').appendTo('#lines').data('data-line', line);
-
-		renderLine(line);
-
 		_lines.push(line);
+
+		line.elVisual = $('<div/>').appendTo('#slide-bar').data('data-line', line);
+		line.elText = $('<tr><td class="ts ts-in"></td><td class="ts ts-out"></td><td class="btn-del">&#114;</td><td class="text"></td></tr>').appendTo('#lines').data('data-line', line);
+		renderLine(line);
 	});
 	$('#slide-view').scrollTop(0);
 }
 
 function parseSrtSource(source)
 {
-	console.log('parseSrtSource', source);
+	_lines = [];
+	_lines.current = -1;
+
+	$('#slide-bar').empty();
+	$('#lines').empty();
+
+	var seq = 0;
+	var from = 0.0;
+	var to = 0.0;
+	var waitingFor = 1;
+	$.each(source.split('\n'), function(idx, text) {
+		text = text.trim();
+		if (text.length > 0) {
+			if (waitingFor == 1) {
+				seq = parseInt(text);
+				waitingFor = 2;
+			} else if (waitingFor == 2) {
+				var m = text.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})/);
+				from = (parseInt(m[1]) * 60 + parseInt(m[2])) * 60 + parseInt(m[3]) + parseInt(m[4]) / 1000;
+				to   = (parseInt(m[5]) * 60 + parseInt(m[6])) * 60 + parseInt(m[7]) + parseInt(m[8]) / 1000;
+				waitingFor = 3;
+			} else if (waitingFor == 3) {
+				var line;
+				if (seq > 0) {
+					line = {
+						text: text,
+						tsIn: from,
+						tsOut: to,
+						passed: true,
+						autoExtend: false
+					};
+					seq = 0;
+				} else {
+					line = {
+						text: text,
+						tsIn: 0.0,
+						tsOut: 0.0,
+						passed: false,
+						autoExtend: true
+					};
+				}
+				_lines.push(line);
+
+				line.elVisual = $('<div/>').appendTo('#slide-bar').data('data-line', line);
+				line.elText = $('<tr><td class="ts ts-in"></td><td class="ts ts-out"></td><td class="btn-del">&#114;</td><td class="text"></td></tr>').appendTo('#lines').data('data-line', line);
+				renderLine(line);
+			}
+		} else {
+			waitingFor = 1;
+		}
+	});
+	$('#slide-view').scrollTop(0);
 }
 
-function renderLine(line)
+function renderLine(line, isCurrentLine)
 {
 	if (line.passed) {
 		line.elVisual.text(line.text);
@@ -238,6 +299,18 @@ function renderLine(line)
 		line.elText.children('.text').text(line.text);
 		line.elText.removeClass('passed-line');
 	}
+
+	line.elVisual.removeClass('overdue');
+	if (isCurrentLine === true) {
+		line.elVisual.addClass('current-line');
+		line.elText.addClass('current-line');
+		if (!line.autoExtend && line.tsOut < player.currentTime) {
+			line.elVisual.addClass('overdue');
+		}
+	} else if (isCurrentLine === false) {
+		line.elVisual.removeClass('current-line');
+		line.elText.removeClass('current-line');
+	}
 }
 
 function markNextLine(currentTime)
@@ -251,17 +324,11 @@ function markNextLine(currentTime)
 	}
 
 	if (curLine) {
-		curLine.elVisual.removeClass('current-line');
-
 		// 当前行的时间戳
-		// TODO:
-		//   后续行如果已经打过点，会随着播放自动跳进，所以实际上
-		//   只能将其提前，无法将其推迟。
 		if (curLine.tsOut > currentTime) {
 			curLine.tsOut = currentTime;
 		}
-		curLine.elText.removeClass('current-line');
-		renderLine(curLine);
+		renderLine(curLine, false);
 	}
 
 	// 处理“下一行”，也就是新的“当前行”
@@ -277,14 +344,10 @@ function markNextLine(currentTime)
 	if (nextLine) {
 		nextLine.passed = true;
 		nextLine.autoExtend = true;
-
-		nextLine.elVisual.addClass('passed-line');
-		nextLine.elVisual.addClass('current-line');
-
 		nextLine.tsIn = currentTime;
 		nextLine.tsOut = currentTime;
-		nextLine.elText.addClass('current-line');
-		renderLine(nextLine);
+
+		renderLine(nextLine, true);
 	}
 
 	scrollCurrentLineIntoView();
@@ -300,7 +363,9 @@ function updateToTime(currentTime)
 
 	// 根据时间戳找到新的当前行
 	var newLineNum = -1;
-	if (curLine && currentTime > curLine.tsIn && _lines.current + 1 < _lines.length && !_lines[_lines.current + 1].passed) {
+	if (!player.paused && curLine && currentTime > curLine.tsIn && _lines.current + 1 < _lines.length && !_lines[_lines.current + 1].passed) {
+		// 播放状态下，如果当前行的下一行尚未打点，则不允许跳过（此时当前行 tsOut 自动延展）
+		// 暂停状态下不受此约束，直接根据当前时间找到匹配的“当前行”
 		newLineNum = _lines.current;
 	} else {
 		for (var i=0; i < _lines.length; i++) {
@@ -313,11 +378,11 @@ function updateToTime(currentTime)
 	// 如果当前行没有变化则……
 	if (newLineNum == _lines.current) {
 		if (curLine) {
-			// 自动延展当前行的结束时间
+			// 自动延展当前行的 tsOut
 			if (curLine.tsOut < currentTime && curLine.autoExtend) {
 				curLine.tsOut = currentTime;
-				curLine.elText.children('.ts-out').text(formatTime(curLine.tsOut, true));
 			}
+			renderLine(curLine, true);
 
 			// 确保后续行的时间戳递增
 			while (++newLineNum < _lines.length) {
@@ -334,15 +399,13 @@ function updateToTime(currentTime)
 
 	// 原来的“当前行”去掉高亮
 	if (curLine) {
-		curLine.elVisual.removeClass('current-line');
-		curLine.elText.removeClass('current-line');
+		renderLine(curLine, false);
 	}
 
 	// 新的“当前行”加高亮
 	if (newLineNum < 0) return;
 	var newLine = _lines[newLineNum];
-	newLine.elVisual.addClass('current-line');
-	newLine.elText.addClass('current-line');
+	renderLine(newLine, true);
 
 	// 当前行滑动到合适的位置
 	scrollCurrentLineIntoView();

@@ -18,6 +18,7 @@ $(function() {
 		win.moveTo(0, 0);
 	});
 
+	// 可全局访问的播放器对象
 	player = $('#player').get(0);
 
 	// 打开视频文件
@@ -38,17 +39,18 @@ $(function() {
 	$('#btn-load-text').on('click', function() {
 		chrome.fileSystem.chooseEntry({
 			type: 'openFile',
-			accepts: [{description:'文本文件 (*.txt)', extensions:['txt']}]
+			accepts: [
+				{description:'文本文件 (*.txt)', extensions:['txt']},
+				{description:'字幕文件 (*.srt)', extensions:['srt']}
+			]
 		}, function(entry) {
 			entry.file(function(file) {
 				var reader = new FileReader();
-				reader.onerror = function(e) {
-					//
-				};
+				var isSrt = file.name.toLowerCase().substr(-4) == '.srt';
 				reader.onloadend = function(e) {
-					parseSource(e.target.result);
+					isSrt ? parseSrtSource(e.target.result) : parseTxtSource(e.target.result);
 				};
-				reader.readAsText(file, 'GBK');
+				reader.readAsText(file, isSrt ? 'UTF8' : 'GBK');
 			});
 		});
 	});
@@ -60,27 +62,25 @@ $(function() {
 			suggestedName: 'subtitles.srt',
 			accepts: [{description:'字幕文件 (*.srt)', extensions:['srt']}]
 		}, function(entry) {
-			console.log(arguments);
 			entry.createWriter(function(fileWriter) {
-				fileWriter.onwriteend = function(e) {
-					console.log('Write completed.');
-				};
-
-				fileWriter.onerror = function(e) {
-					console.log('Write failed: ' + e.toString());
-				};
-
-				var lines = [];
-				$('#slide-bar div').each(function(idx, div) {
-					var line = $(div).text();
-					lines.push(line);
-					lines.push('\r\n');
+				var srt = [];
+				var seq = 1;
+				$.each(_lines, function(idx, line) {
+					if (line.passed) {
+						if (srt.length > 0) {
+							srt.push('\r\n');
+						}
+						srt.push((seq ++) + '\r\n');
+						srt.push(formatTime(line.tsIn, true, true) + ' --> ' + formatTime(line.tsOut, true, true) + '\r\n');
+					}
+					srt.push(line.text + '\r\n');
 				});
 
-debugger;
+				fileWriter.onwriteend = function(e) {
+					fileWriter.onwriteend = null;
+					fileWriter.write(new Blob(srt, {type: 'text/plain'}));
+				};
 				fileWriter.truncate(0);
-				fileWriter.write(new Blob(lines, {type: 'text/plain;charset=GBK'}));
-//				fileWriter.write(new Blob(['中'], {type: 'text/plain;charset=GBK'}));
 			});
 		});
 	});
@@ -97,33 +97,50 @@ debugger;
 		$('#hud').text(str).show();
 
 		// 根据播放进度找到当前行
-		slideToTime(this.currentTime);
+		updateToTime(this.currentTime);
 	});
 
 	// 键盘控制
 	$(document).on('keydown', function(evt) {
 		if (evt.keyCode == 40) { // 下箭头
-			markNextLine();
+			markNextLine(player.currentTime);
 			evt.preventDefault();
+
 		} else if (evt.keyCode == 38) { // 上箭头
 			// 切换“播放/暂停”
 			if (player.readyState > 0) {
 				player.paused ? player.play() : player.pause();
 			}
 			evt.preventDefault();
+
 		} else if (evt.keyCode == 37) { // 左箭头
 			// 回退
 			if (player.readyState > 0) {
 				player.currentTime -= 3;
 			}
 			evt.preventDefault();
+
 		} else if (evt.keyCode == 39) { // 右箭头
 			// 快进
 			if (player.readyState > 0) {
 				player.currentTime += 3;
 			}
 			evt.preventDefault();
+
+		} else if (evt.keyCode == 13) { // 回车键
+			// 停止当前行结束时间戳的自动延展
+			if (_lines.current >= 0) {
+				_lines[_lines.current].autoExtend = false;
+			}
+			evt.preventDefault();
 		}
+	});
+
+	// 编辑区点击清除时间戳
+	$('#lines').delegate('tr.passed-line', 'click', function(evt) {
+		var line = $(evt.currentTarget).data('data-line');
+		line.passed = false;
+		renderLine(line);
 	});
 
 	// 调整界面布局
@@ -136,7 +153,7 @@ function formatPadding(str, pad)
 	return (pad + str).substr(- pad.length);
 }
 
-function formatTime(ts, ms)
+function formatTime(ts, ms, h)
 {
 	var hours = Math.floor(ts / 3600);
 	ts -= hours * 3600;
@@ -145,96 +162,13 @@ function formatTime(ts, ms)
 	var seconds = Math.floor(ts);
 	ts -= seconds;
 	var msec = Math.floor(ts * 1000);
-	var str = (hours > 0) ? formatPadding(hours, '00') + ':' : '';
+	var str = (hours > 0 || h) ? formatPadding(hours, '00') + ':' : '';
 	str += formatPadding(minutes, '00') + ':';
 	str += formatPadding(seconds, '00');
 	if (ms) {
 		str += '.' + formatPadding(msec, '000');
 	}
 	return str;
-}
-
-function slideToTime(currentTime)
-{
-	// 找到新的当前行
-	var curLine = $('#slide-bar div.current-line');
-	var newLine = null;
-	$('#slide-bar div').each(function(idx, div) {
-		if ($(div).data('data-ts') > currentTime) return false;
-		if (!$(div).hasClass('passed-line')) return false;
-		newLine = $(div);
-	});
-	if (!newLine) {
-		curLine.removeClass('current-line');
-		return;
-	}
-
-	// 如果当前行没有变化则返回
-	if (curLine.get(0) == newLine.get(0)) return;
-
-	// 当前行高亮显示
-	curLine.removeClass('current-line');
-	newLine.addClass('current-line');
-
-	// 当前行滑动到合适的位置
-	var preferTop = Math.floor($('#slide-view').height() * 0.7);
-	var scrollTop = Math.max(newLine.position()['top'] - preferTop, 0);
-	$('#slide-view').stop(true).animate({
-		scrollTop: scrollTop
-	}, {
-		duration: 200
-	});
-}
-
-function markNextLine()
-{
-	var currentTime = player.currentTime;
-
-	// 找到“下一行”
-	var curLine = $('#slide-bar div.current-line');
-	var nextLine = null;
-	if (curLine.length == 0) {
-		nextLine = $('#slide-bar div').first();
-	} else {
-		// 确保视频播放时间已经推进 0.3s 以上
-		if (curLine.data('data-ts') + 0.3 >= currentTime) return;
-
-		nextLine = curLine.next();
-	}
-	if (nextLine.length == 0) return;
-
-	// 标记为“已打点”
-	nextLine.addClass('passed-line');
-
-	// 当前行的时间戳
-	// TODO:
-	//   后续行如果已经打过点，会随着播放自动跳进，所以实际上
-	//   只能将其提前，无法将其推迟。
-	nextLine.data('data-ts', currentTime);
-	nextLine = nextLine.next();
-
-	// 后续所有行的时间戳（保证时间戳递增）
-	while (nextLine.length > 0) {
-		if (nextLine.data('data-ts') < currentTime) {
-			nextLine.data('data-ts', currentTime);
-		}
-		nextLine = nextLine.next();
-	}
-}
-
-function parseSource(source)
-{
-	// 编辑区
-	$('#source').val(source);
-
-	// 播放区
-	$('#slide-bar').empty();
-	$.each(source.split('\n'), function(idx, line) {
-		line = line.replace(/ {2,}/g, ' ').trim();
-		if (line.length == 0) return;
-		$('<div/>').text(line).appendTo('#slide-bar').data('data-ts', 0.0);
-	});
-	$('#slide-view').scrollTop(0);
 }
 
 function recalcLayout()
@@ -244,4 +178,185 @@ function recalcLayout()
 	$('#stage').height(h).show();
 	$('#slide-view').height(h - 40).show();
 	$('#editor').height(h).show();
+}
+
+var _lines = [];
+
+function parseTxtSource(source)
+{
+	_lines = [];
+	_lines.current = -1;
+
+	$('#slide-bar').empty();
+	$('#lines').empty();
+	$.each(source.split('\n'), function(idx, text) {
+		text = text.replace(/ {2,}/g, ' ').trim();
+		if (text.length == 0) return;
+
+		var line = {
+			text: text,
+			tsIn: 0.0,
+			tsOut: 0.0,
+			passed: false,
+			autoExtend: true
+		};
+
+		// 播放区
+		line.elVisual = $('<div/>').appendTo('#slide-bar').data('data-line', line);
+
+		// 编辑区
+		line.elText = $('<tr><td class="ts ts-in"></td><td class="ts ts-out"></td><td class="text"></td></tr>').appendTo('#lines').data('data-line', line);
+
+		renderLine(line);
+
+		_lines.push(line);
+	});
+	$('#slide-view').scrollTop(0);
+}
+
+function parseSrtSource(source)
+{
+	console.log('parseSrtSource', source);
+}
+
+function renderLine(line)
+{
+	if (line.passed) {
+		line.elVisual.text(line.text);
+		line.elVisual.addClass('passed-line');
+
+		line.elText.children('.ts-in').text(formatTime(line.tsIn, true));
+		line.elText.children('.ts-out').text(formatTime(line.tsOut, true));
+		line.elText.children('.text').text(line.text);
+		line.elText.addClass('passed-line');
+	} else {
+		line.elVisual.text(line.text);
+		line.elVisual.removeClass('passed-line');
+
+		line.elText.children('.ts-in').text('--:--.---');
+		line.elText.children('.ts-out').text('--:--.---');
+		line.elText.children('.text').text(line.text);
+		line.elText.removeClass('passed-line');
+	}
+}
+
+function markNextLine(currentTime)
+{
+	// 处理原来的“当前行”
+	var curLine = null;
+	if (_lines.current >= 0) {
+		// 确保视频播放时间已经推进 0.3s 以上
+		if (_lines[_lines.current].tsIn + 0.3 >= currentTime) return;
+		curLine = _lines[_lines.current];
+	}
+
+	if (curLine) {
+		curLine.elVisual.removeClass('current-line');
+
+		// 当前行的时间戳
+		// TODO:
+		//   后续行如果已经打过点，会随着播放自动跳进，所以实际上
+		//   只能将其提前，无法将其推迟。
+		if (curLine.tsOut > currentTime) {
+			curLine.tsOut = currentTime;
+		}
+		curLine.elText.removeClass('current-line');
+		renderLine(curLine);
+	}
+
+	// 处理“下一行”，也就是新的“当前行”
+	var nextLine = null;
+	var next = _lines.current + 1;
+	if (next < _lines.length) {
+		nextLine = _lines[next];
+		_lines.current = next;
+	} else {
+		_lines.current = -1;
+	}
+
+	if (nextLine) {
+		nextLine.passed = true;
+		nextLine.autoExtend = true;
+
+		nextLine.elVisual.addClass('passed-line');
+		nextLine.elVisual.addClass('current-line');
+
+		nextLine.tsIn = currentTime;
+		nextLine.tsOut = currentTime;
+		nextLine.elText.addClass('current-line');
+		renderLine(nextLine);
+	}
+
+	scrollCurrentLineIntoView();
+}
+
+function updateToTime(currentTime)
+{
+	// 原来的“当前行”
+	var curLine = null;
+	if (_lines.current >= 0) {
+		curLine = _lines[_lines.current];
+	}
+
+	// 根据时间戳找到新的当前行
+	var newLineNum = -1;
+	if (curLine && currentTime > curLine.tsIn && _lines.current + 1 < _lines.length && !_lines[_lines.current + 1].passed) {
+		newLineNum = _lines.current;
+	} else {
+		for (var i=0; i < _lines.length; i++) {
+			if (!_lines[i].passed) continue;
+			if (_lines[i].tsIn > currentTime) break;
+			newLineNum = i;
+		}
+	}
+
+	// 如果当前行没有变化则……
+	if (newLineNum == _lines.current) {
+		if (curLine) {
+			// 自动延展当前行的结束时间
+			if (curLine.tsOut < currentTime && curLine.autoExtend) {
+				curLine.tsOut = currentTime;
+				curLine.elText.children('.ts-out').text(formatTime(curLine.tsOut, true));
+			}
+
+			// 确保后续行的时间戳递增
+			while (++newLineNum < _lines.length) {
+				var newLine = _lines[newLineNum];
+				if (newLine.passed && newLine.tsIn < currentTime) {
+					newLine.passed = false;
+					renderLine(newLine);
+				}
+			}
+		}
+		return;
+	}
+	_lines.current = newLineNum;
+
+	// 原来的“当前行”去掉高亮
+	if (curLine) {
+		curLine.elVisual.removeClass('current-line');
+		curLine.elText.removeClass('current-line');
+	}
+
+	// 新的“当前行”加高亮
+	if (newLineNum < 0) return;
+	var newLine = _lines[newLineNum];
+	newLine.elVisual.addClass('current-line');
+	newLine.elText.addClass('current-line');
+
+	// 当前行滑动到合适的位置
+	scrollCurrentLineIntoView();
+}
+
+function scrollCurrentLineIntoView()
+{
+	if (_lines.current < 0) return;
+	var curLine = _lines[_lines.current];
+	var preferTop = Math.floor($('#slide-view').height() * 0.7);
+	var scrollTop = Math.max(curLine.elVisual.position()['top'] - preferTop, 0);
+	$('#slide-view').stop(true).animate({
+		scrollTop: scrollTop
+	}, {
+		duration: 200
+	});
 }

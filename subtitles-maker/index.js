@@ -39,10 +39,7 @@ $(function() {
 	$('#btn-load-text').on('click', function() {
 		chrome.fileSystem.chooseEntry({
 			type: 'openFile',
-			accepts: [
-				{description:'文本文件 (*.txt)', extensions:['txt']},
-				{description:'字幕文件 (*.srt)', extensions:['srt']}
-			]
+			accepts: [{description:'文本/字幕文件 (*.txt, *.srt)', extensions:['txt', 'srt']}]
 		}, function(entry) {
 			entry.file(function(file) {
 				var reader = new FileReader();
@@ -136,6 +133,20 @@ $(function() {
 				var line = _lines[_lines.current];
 				line.tsOut = player.currentTime;
 				line.autoExtend = false;
+				renderLine(line);
+			}
+			evt.preventDefault();
+
+		} else if (evt.keyCode == 32) { // 空格键
+			// 当前行启动“自动延展结束时间”
+			if (_lines.current >= 0) {
+				var line = _lines[_lines.current];
+				line.autoExtend = true;
+			}
+			// 清除下一行的时间戳
+			if (_lines.current + 1 < _lines.length) {
+				var line = _lines[_lines.current + 1];
+				line.passed = false;
 				renderLine(line);
 			}
 			evt.preventDefault();
@@ -415,9 +426,29 @@ function scrollCurrentLineIntoView()
 {
 	if (_lines.current < 0) return;
 	var curLine = _lines[_lines.current];
+
+	// 播放区
 	var preferTop = Math.floor($('#slide-view').height() * 0.7);
 	var scrollTop = Math.max(curLine.elVisual.position()['top'] - preferTop, 0);
 	$('#slide-view').stop(true).animate({
+		scrollTop: scrollTop
+	}, {
+		duration: 200
+	});
+
+	// 列表区
+	var top = curLine.elText.position().top;
+	var boundTop = Math.floor($('#editor').innerHeight() / 4);
+	var boundBottom = boundTop * 3;
+	var scrollTop = $('#editor').scrollTop();
+	if (scrollTop < top - boundBottom) {
+		scrollTop = top - boundBottom;
+	} else if (scrollTop > top - boundTop) {
+		scrollTop = top - boundTop;
+	} else {
+		return;
+	}
+	$('#editor').stop(true).animate({
 		scrollTop: scrollTop
 	}, {
 		duration: 200

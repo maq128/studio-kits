@@ -1,11 +1,6 @@
 ﻿{
     function createSubtitles(thisObj)
     {
-        // 读入字幕文件
-        var subtitles = loadSrt();
-        if (!subtitles) return;
-        log('字幕加载完毕: ' + subtitles.length + ' 行');
-
         // 在当前的 Composition Item 上操作
         var item = app.project.activeItem;
         if (!item || (item.typeName != 'Composition' && item.typeName != '合成')) {
@@ -13,18 +8,10 @@
             return;
         }
 
-        var pb = progressBar("导入字幕");
-
-        // 以下所有操作合并为一个 undo-group
-        log('beginUndoGroup');
-        app.beginUndoGroup('导入字幕');
-
         // 找到字幕层（没有则创建一个）
         var layer = item.layers.byName('字幕');
         if (!layer) {
-            log('创建字幕层');
-            pb.setText('创建字幕层...');
-
+            app.beginUndoGroup('创建字幕层');
             layer = item.layers.addText('');
             layer.name = '字幕';
 
@@ -37,7 +24,7 @@
             textDocument.tracking = 22;
             textDocument.fillColor = [1, 1, 1];
             textDocument.strokeColor = [0, 0, 0];
-            textDocument.strokeWidth = 6;
+            textDocument.strokeWidth = 7;
             textDocument.font = 'YouYuan';
             textDocument.strokeOverFill = false;
             textDocument.applyStroke = true;
@@ -48,73 +35,68 @@
             // 设定文字位置
             prop = layer.Transform.property('Position');
             prop.setValue([88, item.height - 82, 0]);
+            app.endUndoGroup();
+
+            // 给用户留一个机会，先调整文字属性
+            alert([
+                '刚刚创建了一个“字幕”层，部分文字属性已经设置为适当的缺省值。\r\n',
+                '有些属性无法通过程序设定（比如字体加粗），您可以先检查一下现有',
+                '的文字属性，需要的话可做适当调整，然后再重新运行本程序。'
+            ].join('\r\n'));
+            return;
         }
 
-        // 清除所有 keyframes
-        log('清除原有关键帧');
+        // 读入字幕文件
+        var subtitles = loadSrt();
+        if (!subtitles) return;
+        log('字幕解析完毕: ' + subtitles.length + ' 行');
 
+        // 进度条
+        var pb = new ProgressBar("导入字幕");
+
+        // 开启 undo-group
+        app.beginUndoGroup('导入字幕');
+
+        // 清除所有 keyframes
         var prop = layer.Text.property('Source Text');
         var total = prop.numKeys;
-        while (prop.numKeys > 0) {
+        while (prop.numKeys > 0 && !pb.isCanceled()) {
             log('  清除: ' + prop.numKeys);
-            pb.setValue((total - prop.numKeys) / total);
+            pb.setValue((total - prop.numKeys) / (total + 10));
             pb.setText('清除原有关键帧: ' + prop.numKeys);
 
             prop.removeKey(prop.numKeys);
         }
 
-        // 创建 keyframes
-        log('开始导入');
-        var getPerfectTimePosition = function(t) {
-            return Math.round(t / item.frameDuration) * item.frameDuration;
-        };
-        prop.setValueAtTime(0.0, '');
-        for (var i=0; i < subtitles.length; i++) {
-            log('  导入: ' + i + ' / ' + subtitles.length);
-            pb.setValue(i / subtitles.length);
-            pb.setText('导入: ' + i + ' / ' + subtitles.length);
+        if (!pb.isCanceled()) {
+            // 创建 keyframes
+            var getPerfectTimePosition = function(t) {
+                return Math.round(t / item.frameDuration) * item.frameDuration;
+            };
+            var timesArray = [0.0];
+            var valuesArray = [''];
+            for (var i=0; i < subtitles.length; i++) {
+                var subtitle = subtitles[i];
+                timesArray.push(subtitle.from);
+                valuesArray.push(subtitle.text);
+                timesArray.push(subtitle.to);
+                valuesArray.push('');
+            }
+            if (timesArray.length > 0) {
+                log('  导入: ' + subtitles.length);
+                pb.setValue(1.0);
+                pb.setText('创建字幕关键帧');
 
-            var subtitle = subtitles[i];
-            prop.setValueAtTime(getPerfectTimePosition(subtitle.from), subtitle.text);
-            prop.setValueAtTime(getPerfectTimePosition(subtitle.to), '');
-            if (pb.isCanceled()) {
-                log('停止导入');
-                break;
+                prop.setValuesAtTimes(timesArray, valuesArray);
             }
         }
-        pb.close();
-        log('导入完成');
-
         app.endUndoGroup();
+
+        pb.close();
+        log('导入' + (pb.isCanceled() ? '中止' : '完成'));
+
         app.activate();
-    }
-
-    function progressBar(title)
-    {
-        var result = new Object();
-        result.running = true;
-        result.p = new Window("palette", title);
-        result.p.orientation = "column";
-        result.p.alignChildren = "left";
-
-        result.t1 = result.p.add("statictext", {x:0, y:0, width:300, height:24}, '-');
-        result.b = result.p.add("progressbar", {x:0, y:0, width:300, height:24});
-
-        result.c = result.p.add("button", undefined, "停止");
-        result.c.onClick = function() {
-            log('用户点击了【停止】按钮');
-            this.running = false;
-        }
-
-        result.isRunning = function() { return this.running; }
-        result.isCanceled = function() { return !this.isRunning(); }
-        result.setValue = function(x) { this.b.value = x * 100; }
-        result.setText = function(t1) { this.t1.text = t1; this.p.update(); }
-        result.close = function() { this.p.close(); }
-
-        result.p.show();
-        result.p.center();
-        return result;
+        alert('字幕导入已' + (pb.isCanceled() ? '中止' : '完成') + '。', '导入字幕');
     }
 
     function loadSrt()
@@ -161,7 +143,35 @@
             arguments.callee.t0 = new Date().getTime();
         }
         var tc = (new Date().getTime() - arguments.callee.t0) / 1000;
-        $.writeln('[' + tc + '] ' + msg);
+        clearOutput();
+        writeLn('[' + tc + '] ' + msg);
+    }
+
+    function ProgressBar(title)
+    {
+        var pb = new Object();
+        pb.cancel = false;
+        pb.win = new Window("palette", title);
+        pb.win.orientation = "column";
+        pb.win.alignChildren = "left";
+
+        pb.text = pb.win.add("statictext", {x:0, y:0, width:300, height:24}, '正在运行……');
+        pb.bar = pb.win.add("progressbar", {x:0, y:0, width:300, height:24});
+
+        pb.btn = pb.win.add("button", undefined, "停止");
+        pb.btn.onClick = function() {
+            log('用户点击了【停止】按钮');
+            pb.cancel = true;
+        }
+
+        pb.isCanceled = function() { return this.cancel; }
+        pb.setValue = function(x) { this.bar.value = x * 100; }
+        pb.setText = function(text) { this.text.text = text; this.win.update(); $.sleep(10); }
+        pb.close = function() { this.win.close(); }
+
+        pb.win.show();
+        pb.win.center();
+        return pb;
     }
 
     createSubtitles(this);

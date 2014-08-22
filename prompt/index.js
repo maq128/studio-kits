@@ -85,10 +85,21 @@ $(function() {
 		slideUp();
 	});
 
-	$(document).on('keypress', function(evt) {
-		if (evt.charCode == 32) { // 空格键
-			if (evt.target.id == 'source') return;
-			window._curSlide ? slideStop() : slideUp();
+//	$(document).on('keypress', function(evt) {
+//		if (evt.charCode == 32) { // 空格键
+//			if (evt.target.id == 'source') return;
+//			window._curSlide ? slideStop() : slideUp();
+//		}
+//	});
+
+	$(document).on('keydown', function(evt) {
+		if (evt.keyCode == 32) { // 空格键
+			slideStop();
+		}
+	});
+	$(document).on('keyup', function(evt) {
+		if (evt.keyCode == 32) { // 空格键
+			slideUp();
 		}
 	});
 
@@ -108,7 +119,7 @@ function switchMode(mode)
 		$('#source').show();
 		$('#stage').hide();
 		$('#progress').hide();
-		chrome.app.window.current().restore();
+		//chrome.app.window.current().restore();
 	} else if (mode == 'play') {
 		slideStop();
 		$('#btn-play').addClass('pressed');
@@ -121,7 +132,7 @@ function switchMode(mode)
 
 		$('#stage').scrollTop(0);
 		slideUp();
-		chrome.app.window.current().fullscreen();
+		//chrome.app.window.current().fullscreen();
 	}
 }
 

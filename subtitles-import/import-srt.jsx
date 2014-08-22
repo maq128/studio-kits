@@ -71,15 +71,15 @@
         if (!pb.isCanceled()) {
             // 创建 keyframes
             var getPerfectTimePosition = function(t) {
-                return Math.round(t / item.frameDuration) * item.frameDuration;
+                return Math.round(t / item.frameDuration) * item.frameDuration - item.frameDuration/100;
             };
             var timesArray = [0.0];
             var valuesArray = [''];
             for (var i=0; i < subtitles.length; i++) {
                 var subtitle = subtitles[i];
-                timesArray.push(subtitle.from);
+                timesArray.push(getPerfectTimePosition(subtitle.from));
                 valuesArray.push(subtitle.text);
-                timesArray.push(subtitle.to);
+                timesArray.push(getPerfectTimePosition(subtitle.to));
                 valuesArray.push('');
             }
             if (timesArray.length > 0) {

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>提词器(A)</title>
+<style type="text/css">
+body {
+	margin: 0px;
+	overflow: hidden;
+}
+#stage {
+	position: relative;
+	overflow: hidden;
+	height: 50%;
+	display: none;
+}
+#slide {
+	background-color: black;
+	width: 100%;
+	height: 100%;
+	overflow-x: hidden;
+	overflow-y: scroll;
+
+	white-space: pre;
+	font-family: 微软雅黑;
+	font-size: 1em;
+	line-height: 1.8em;
+	text-align: left;
+	color: wheat;
+}
+#slide div {
+	display: inline-block;
+	margin-left: 0.5em;
+	background-image: -webkit-linear-gradient(left, #505050, #505050 95%, #909090);
+	background-repeat: no-repeat;
+	background-size: 0% 100%;
+}
+#slide div.passed {
+	background-color: #505050;
+	background-size: 100% 100%;
+}
+
+#splash {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0px;
+	top: 0px;
+	color: red;
+	font-size: 25em;
+	text-align: center;
+}
+
+#toolbar {
+	position: fixed;
+	left: 0px;
+	bottom: 0px;
+	width: 100%;
+	padding: 10px;
+	background-color: #dfdfe0;
+	border-top: 1px solid #aaaaab;
+}
+#toolbar > span {
+	display: inline-block;
+	font-size: 12px;
+}
+#toolbar input {
+	width: 30px;
+	text-align: center;
+	vertical-align: baseline;
+}
+.btn {
+	border: 1px solid silver;
+	padding: 5px;
+	cursor: pointer;
+}
+.btn:hover {
+	border: 1px solid black;
+}
+.btn.pressed {
+	background-color: gray;
+	color: white;
+	cursor: default;
+	border: 1px solid silver;
+}
+
+.seperate {
+	margin-left: 30px;
+}
+</style>
+</head>
+<body>
+<textarea id="source">
+点击【文本编辑】按钮进入文本编辑状态，再次点击可以读取文本文件内容。
+点击【播放】按钮可进入播放状态，再次点击可以重新开始播放。
+点击播放区可以重新开始播放。
+
+原始文本内容在用于播放的时候会首先进行排版，每行不超过指定的字符数，空行将会被滤掉。
+
+播放过程控制为指定的时间长度。
+</textarea>
+<div id="stage">
+	<div id="slide"></div>
+	<div id="splash">3</div>
+</div>
+<div id="toolbar">
+	<span id="btn-source" class="btn">文本编辑</span>
+	<span id="btn-play" class="btn">播放</span>
+
+	<span class="seperate">每行<input type="text" id="chars" value="40"/>字</span>
+	<span class="seperate">时长<input type="text" id="duration" value="60"/>秒</span>
+
+	<span id="info" class="seperate"></span>
+</div>
+
+<script src="jquery-1.11.1.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

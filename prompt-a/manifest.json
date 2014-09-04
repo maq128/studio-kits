@@ -1,0 +1,22 @@
+{
+	"manifest_version"  : 2,
+	"name"              : "提词器(A)",
+	"version"           : "0.1",
+	"description"       : "适用于制作固定时长的音频，比如微信60秒语音。",
+
+	"app": {
+		"background": {
+			"scripts": ["background.js"]
+		}
+	},
+
+	"permissions": [
+		"fileSystem"
+	],
+
+	"icons": {
+		"16" : "icon16.png",
+		"48" : "icon48.png",
+		"128": "icon128.png"
+	}
+}

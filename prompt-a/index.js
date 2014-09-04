@@ -139,6 +139,7 @@ function playStart()
 {
 	playStop();
 
+	$('#slide').scrollTop(0);
 	window._curPlay = $('#splash')
 		.show()
 		.css({opacity: 1}).text('3')

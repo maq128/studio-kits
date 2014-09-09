@@ -130,7 +130,7 @@ function countChars()
 	var count = 0;
 	var lines = reformSource($('#source').val());
 	$.each(lines, function(idx, line) {
-		count += line.length;
+		count += line.replace(/[，、。！“”‘’：《》 ,\.!"':<>]/g, '').length;
 	});
 	$('#info').text('总共 ' + count + ' 字');
 }
@@ -238,6 +238,8 @@ function resizeStage()
 	var w = $(window).width();
 	var h = $(window).height() - $('#toolbar').outerHeight();
 	$('#stage').width(w).height(h);
-	$('#source').width(w).height(h);
+	$('#source')
+		.width(w - ($('#source').outerWidth() - $('#source').width()))
+		.height(h - ($('#source').outerHeight() - $('#source').height()));
 	recalcFontSize();
 }

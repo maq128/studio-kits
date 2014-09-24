@@ -198,7 +198,7 @@ function reformSource(source)
 		line = line.trim();
 		if (line.length == 0) {
 			if (paragraph.length > 0) {
-				paragraphs.push(paragraph.join(' '));
+				paragraphs.push(paragraph.join(''));
 			}
 			paragraph = [];
 		} else {
@@ -206,7 +206,7 @@ function reformSource(source)
 		}
 	});
 	if (paragraph.length > 0) {
-		paragraphs.push(paragraph.join(' '));
+		paragraphs.push(paragraph.join(''));
 	}
 
 	// 按固定长度（20个中文字符）重新分行
